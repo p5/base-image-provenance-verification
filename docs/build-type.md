@@ -14,7 +14,7 @@ Cosign wraps the predicate in an in-toto statement whose subject is the pushed c
 1. Check out the workflow's source commit on a GitHub-hosted runner.
 2. Check the restricted Containerfile against the expected provider image reference.
 3. Resolve the provider index to exactly one `linux/amd64` image manifest.
-4. Check the manifest and configuration hashes.
+4. Check the provider index hash.
 5. Run Buildah with the literal Containerfile, `--pull=always`, and `--platform linux/amd64`.
 6. Push the customer image with Buildah and read its `--digestfile` output.
 7. Record the inputs and Containerfile contents in a SLSA v1 predicate.
@@ -55,12 +55,12 @@ They are not general SLSA fields that other build types must support.
 
 ## Verification rules
 
-The verifier checks the signing identity, OIDC issuer, and approved workflow commit through Cosign.
-It then checks the statement subject and all four dependency roles.
-It requires the source URL to match the signing workflow repository.
-It checks recipe content, its digest, and its literal runtime base.
-It resolves the provider index independently and compares the recorded platform input.
-Finally, it verifies the provider image signature and original provider provenance.
+Cosign checks the output digest, signing identity, OIDC issuer, and approved workflow commit.
+Its CUE policy checks the build parameters and all four dependency roles.
+The recorded provider index and runtime platform must match the approved pins in the verifier.
+The build job checks the Containerfile. The verifier trusts that check through the approved workflow commit.
+The verifier does not parse the recipe or traverse image indexes.
+Finally, Cosign verifies the provider image signature and original provider provenance.
 
 The workflow generates these claims. Buildah itself does not generate the SLSA predicate.
 The workflow's integrity is part of the verifier's trust decision.

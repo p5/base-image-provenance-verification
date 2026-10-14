@@ -5,24 +5,26 @@ fixture="$script_dir/../testdata/statement.json"
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 
-image="ghcr.io/p5/base-image-provenance-verification@sha256:$(jq -r '.subject[0].digest.sha256' "$fixture")"
 base=$(jq -r '.predicate.buildDefinition.externalParameters.base' "$fixture")
 parent=$(jq -r '.predicate.buildDefinition.resolvedDependencies[] | select(.name == "runtime-base") | .uri | ltrimstr("oci://")' "$fixture")
 workflow=$(jq -r '.predicate.runDetails.builder.id' "$fixture")
 revision=$(jq -r '.predicate.buildDefinition.externalParameters.revision' "$fixture")
-source=$(jq -r '.predicate.buildDefinition.externalParameters.source' "$fixture")
+cp "$script_dir/../policy/base.cue" "$work/policy.cue"
+printf '_trust: {base: "%s", parent: "%s", workflow: "%s", revision: "%s"}\n' \
+  "$base" "$parent" "$workflow" "$revision" > "$work/trust.cue"
 
 check_policy() {
-  jq -e --arg image "$image" --arg base "$base" --arg parent "$parent" \
-    --arg workflow "$workflow" --arg revision "$revision" --arg source "$source" \
-    -f "$script_dir/provenance-policy.jq" "$1" > /dev/null 2>&1
+  cue vet -c "$work/policy.cue" "$work/trust.cue" "$1" > /dev/null 2>&1
 }
 
-jq '[.]' "$fixture" > "$work/valid.json"
+cp "$fixture" "$work/valid.json"
 check_policy "$work/valid.json"
-count=1
+jq '.predicate.buildDefinition.resolvedDependencies |= reverse' "$fixture" > "$work/reordered.json"
+check_policy "$work/reordered.json"
+count=2
 for mutation in \
-  '.subject[0].digest.sha256 = ("0" * 64)' \
+  '.subject[0].digest.sha256 = "invalid"' \
+  '.subject = []' \
   '.predicateType = "other"' \
   '.predicate.runDetails.builder.id = "other"' \
   '.predicate.buildDefinition.buildType = "other"' \
@@ -31,13 +33,15 @@ for mutation in \
   '.predicate.buildDefinition.externalParameters.base = "registry.example/base:latest"' \
   '.predicate.buildDefinition.externalParameters.platform = "linux/arm64"' \
   '.predicate.buildDefinition.externalParameters.extra = "unexpected input"' \
+  'del(.predicate.buildDefinition.externalParameters.base)' \
+  'del(.predicate.buildDefinition.resolvedDependencies[0].digest.sha256)' \
   '.predicate.buildDefinition.resolvedDependencies[0].digest.sha256 = ("0" * 64)' \
   '.predicate.buildDefinition.resolvedDependencies[1].uri = "oci://registry.example/other"' \
   '.predicate.buildDefinition.resolvedDependencies[1].digest.sha256 = ("0" * 64)' \
   '.predicate.buildDefinition.resolvedDependencies += [.predicate.buildDefinition.resolvedDependencies[1]]' \
   '.predicate.buildDefinition.resolvedDependencies |= .[1:]' \
   '.predicate.buildDefinition.resolvedDependencies[3].digest.gitCommit = ("0" * 40)'; do
-  jq "[($mutation)]" "$fixture" > "$work/invalid.json"
+  jq "$mutation" "$fixture" > "$work/invalid.json"
   if check_policy "$work/invalid.json"; then
     echo "FAIL: accepted $mutation" >&2
     exit 1

@@ -36,13 +36,14 @@ Then rerun failed jobs if the public verification job failed.
 The public verification job deliberately fails when anonymous access is unavailable.
 
 The run summary contains the immutable image reference, workflow commit, and verification command.
-The `public-verification` run artifact contains the verified statement and result.
+The `public-verification` run artifact contains the Cosign-verified attestation envelopes.
 That artifact is a convenience. Verification retrieves the signed evidence from the public registry.
 
 ## Verify as a third party
 
-Install Cosign 3.1.3, ORAS 1.3.4, and `jq`.
-The scripts use Bash and standard Linux tools, including `sha256sum` and `base64`.
+Install Cosign 3.1.3. The verifier uses Bash and standard file utilities.
+Cosign applies [the CUE policy](policy/base.cue) through its built-in `--policy` option.
+Verification does not require ORAS, `jq`, or the CUE CLI.
 Buildah is required to build images. It is not required to verify them.
 No Go application or Go toolchain is required.
 
@@ -55,9 +56,8 @@ cd base-image-provenance-verification
 git checkout APPROVED_WORKFLOW_COMMIT
 
 scripts/verify.sh \
-  --image ghcr.io/p5/base-image-provenance-verification@sha256:IMAGE_DIGEST \
-  --workflow-sha APPROVED_WORKFLOW_COMMIT \
-  --provider-ignore-tlog
+  ghcr.io/p5/base-image-provenance-verification@sha256:IMAGE_DIGEST \
+  APPROVED_WORKFLOW_COMMIT
 ```
 
 Replace the two placeholders with the approved commit and published image digest.
@@ -74,10 +74,12 @@ Cosign checks that identity, the GitHub OIDC issuer, and the exact approved work
 Customer certificate and transparency-log checks remain enabled.
 The verifier rejects mutable image tags.
 
-The `--provider-ignore-tlog` flag applies only to the existing provider signatures and provenance.
-These checks use the provider's published public keys without requiring transparency-log records.
-The flag does not weaken customer provenance verification.
+This fixed demo checks provider signatures and provenance with the provider's published public keys.
+Only those provider checks skip transparency-log verification, because the existing provider evidence does not require those records.
+Customer certificate and transparency-log checks remain enabled.
 The original provider provenance uses Cosign's explicit legacy attestation format selection.
+The script emits Cosign's verified attestation envelopes as JSON on standard output.
+It reports success only after all provider checks pass.
 
 ## Base image and keys
 
@@ -87,9 +89,16 @@ The demo pins this provider image:
 registry.access.redhat.com/hi/core-runtime@sha256:e4b8f4ccc7a1ef92c469f53405de43292132f5da648ec5d2f95024f09762f407
 ```
 
-The shell verifier resolves its AMD64 platform manifest through the signed index digest.
-It checks the hashes of fetched manifests and the image configuration.
-It requires the recorded runtime base to match that platform manifest.
+The demo also pins the base's AMD64 manifest:
+
+```text
+sha256:07247ee02238b21022a5eb877e8e44c4560999627bf5e9dd9ab54922d2d74ae4
+```
+
+The build job checks the provider index hash and selects its AMD64 member.
+The verifier requires the recorded provider index and runtime base to match these approved pins.
+It does not traverse arbitrary image indexes or inspect customer files.
+To update the base, review and update both pins in `scripts/verify.sh` and the workflow's base reference.
 
 Provider key sources:
 
@@ -122,12 +131,15 @@ This restriction makes the runtime-base relationship explicit.
 
 See [the build type](docs/build-type.md) for the provenance fields and their meaning.
 Support for package installation or general Containerfiles needs a broader recipe policy and matching tests.
-Do not remove recipe checks without defining how the workflow identifies the runtime base.
+The build job enforces the recipe restriction. The verifier trusts that job through the approved workflow commit.
 
 If you copy the image to another registry, copy its signed provenance as well.
 Repeat anonymous verification against the destination reference.
 
 ## Local checks
+
+Install the CUE CLI 0.14.1, `jq`, ShellCheck, and actionlint for development checks.
+Consumers do not need these tools.
 
 ```sh
 scripts/test-policy.sh
@@ -135,7 +147,8 @@ shellcheck scripts/*.sh
 actionlint
 ```
 
-The 23 policy checks reject wrong output digests, base digests, workflow identities, commits, platforms, recipes, and duplicate dependencies.
+The 27 checks cover CUE policy constraints and the build job's recipe restrictions.
+Cosign checks the output digest, workflow identity, and approved commit.
 The Actions job also rejects a wrong provider key and a wrong workflow commit against real signed evidence.
 
 ## References
