@@ -41,8 +41,10 @@ That artifact is a convenience. Verification retrieves the signed evidence from 
 
 ## Verify as a third party
 
-Install Go 1.26 or later, Cosign 3.1.3, and ORAS 1.3.4.
+Install Cosign 3.1.3, ORAS 1.3.4, and `jq`.
+The scripts use Bash and standard Linux tools, including `sha256sum` and `base64`.
 Buildah is required to build images. It is not required to verify them.
+No Go application or Go toolchain is required.
 
 Review and approve the workflow commit before you trust its claims.
 Copy the image reference and workflow commit from the run summary.
@@ -52,7 +54,7 @@ git clone https://github.com/p5/base-image-provenance-verification.git
 cd base-image-provenance-verification
 git checkout APPROVED_WORKFLOW_COMMIT
 
-go run ./cmd/provenance-demo verify \
+scripts/verify.sh \
   --image ghcr.io/p5/base-image-provenance-verification@sha256:IMAGE_DIGEST \
   --workflow-sha APPROVED_WORKFLOW_COMMIT \
   --provider-ignore-tlog
@@ -85,7 +87,7 @@ The demo pins this provider image:
 registry.access.redhat.com/hi/core-runtime@sha256:e4b8f4ccc7a1ef92c469f53405de43292132f5da648ec5d2f95024f09762f407
 ```
 
-The verifier resolves its AMD64 platform manifest through the signed index digest.
+The shell verifier resolves its AMD64 platform manifest through the signed index digest.
 It checks the hashes of fetched manifests and the image configuration.
 It requires the recorded runtime base to match that platform manifest.
 
@@ -128,12 +130,12 @@ Repeat anonymous verification against the destination reference.
 ## Local checks
 
 ```sh
-go test ./...
-go vet ./...
-go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+scripts/test-policy.sh
+shellcheck scripts/*.sh
+actionlint
 ```
 
-Tests reject wrong output digests, base digests, workflow identities, commits, platforms, recipes, and duplicate dependencies.
+The 23 policy checks reject wrong output digests, base digests, workflow identities, commits, platforms, recipes, and duplicate dependencies.
 The Actions job also rejects a wrong provider key and a wrong workflow commit against real signed evidence.
 
 ## References

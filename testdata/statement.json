@@ -1,0 +1,65 @@
+{
+  "_type": "https://in-toto.io/Statement/v0.1",
+  "subject": [
+    {
+      "name": "ghcr.io/p5/base-image-provenance-verification",
+      "digest": {
+        "sha256": "5564df9d2dcf70c8a59285f725cc5fb506f6852bf786c2c525208fbbed57126e"
+      }
+    }
+  ],
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://github.com/p5/base-image-provenance-verification/blob/main/docs/build-type.md",
+      "externalParameters": {
+        "base": "registry.access.redhat.com/hi/core-runtime@sha256:e4b8f4ccc7a1ef92c469f53405de43292132f5da648ec5d2f95024f09762f407",
+        "platform": "linux/amd64",
+        "source": "https://github.com/p5/base-image-provenance-verification",
+        "revision": "6e3e2f64a8fbde8c9f921b4ebceaa8d250056155",
+        "containerfile": "Containerfile"
+      },
+      "resolvedDependencies": [
+        {
+          "name": "provider-base",
+          "uri": "oci://registry.access.redhat.com/hi/core-runtime@sha256:e4b8f4ccc7a1ef92c469f53405de43292132f5da648ec5d2f95024f09762f407",
+          "digest": {
+            "sha256": "e4b8f4ccc7a1ef92c469f53405de43292132f5da648ec5d2f95024f09762f407"
+          }
+        },
+        {
+          "name": "runtime-base",
+          "uri": "oci://registry.access.redhat.com/hi/core-runtime@sha256:07247ee02238b21022a5eb877e8e44c4560999627bf5e9dd9ab54922d2d74ae4",
+          "digest": {
+            "sha256": "07247ee02238b21022a5eb877e8e44c4560999627bf5e9dd9ab54922d2d74ae4"
+          }
+        },
+        {
+          "name": "containerfile",
+          "digest": {
+            "sha256": "e57219ccc651699aeaad12d8a581a449e8e9a7c16e577c0886dd047a2dfcee30"
+          },
+          "content": "RlJPTSByZWdpc3RyeS5hY2Nlc3MucmVkaGF0LmNvbS9oaS9jb3JlLXJ1bnRpbWVAc2hhMjU2OmU0YjhmNGNjYzdhMWVmOTJjNDY5ZjUzNDA1ZGU0MzI5MjEzMmY1ZGE2NDhlYzVkMmY5NTAyNGYwOTc2MmY0MDcKQ09QWSBjdXN0b21lci9tZXNzYWdlLnR4dCAvY3VzdG9tZXIvbWVzc2FnZS50eHQKTEFCRUwgb3JnLm9wZW5jb250YWluZXJzLmltYWdlLnNvdXJjZT0iaHR0cHM6Ly9naXRodWIuY29tL3A1L2Jhc2UtaW1hZ2UtcHJvdmVuYW5jZS12ZXJpZmljYXRpb24iCg=="
+        },
+        {
+          "name": "source",
+          "uri": "https://github.com/p5/base-image-provenance-verification",
+          "digest": {
+            "gitCommit": "6e3e2f64a8fbde8c9f921b4ebceaa8d250056155"
+          }
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": "https://github.com/p5/base-image-provenance-verification/.github/workflows/demo.yml@refs/heads/main",
+        "version": {
+          "buildah": "buildah version 1.33.7 (image-spec 1.1.0-rc.5, runtime-spec 1.1.0)"
+        }
+      },
+      "metadata": {
+        "invocationId": "https://github.com/p5/base-image-provenance-verification/actions/runs/38643095080/attempts/1"
+      }
+    }
+  }
+}

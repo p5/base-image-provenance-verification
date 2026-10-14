@@ -24,15 +24,17 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version-file: go.mod
-          cache: false
       - name: Check verifier and workflow
         run: |
-          go test ./...
-          go vet ./...
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          shellcheck scripts/*.sh
+          scripts/test-policy.sh
+          curl --fail --silent --show-error --location \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$RUNNER_TEMP/actionlint.tar.gz"
+          printf '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  %s\n' \
+            "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint"
 
   build:
     needs: test
@@ -47,10 +49,6 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version-file: go.mod
-          cache: false
       - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1
         with:
           url: https://github.com/oras-project/oras/releases/download/v1.3.4/oras_1.3.4_linux_amd64.tar.gz
@@ -63,8 +61,15 @@ jobs:
       - name: Resolve runtime base and check Containerfile
         run: |
           mkdir -p results
-          go build -o results/provenance-demo ./cmd/provenance-demo
-          results/provenance-demo prepare --base "$BASE_IMAGE" --output results/inputs.json
+          scripts/check-containerfile.sh Containerfile "$BASE_IMAGE"
+          oras manifest fetch "$BASE_IMAGE" > results/base-index.json
+          printf '%s  results/base-index.json\n' "${BASE_IMAGE##*@sha256:}" | sha256sum --check
+          parent_digest=$(jq -er '
+            [.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")]
+            | if length == 1 then .[0].digest else error("missing or ambiguous AMD64 base") end
+          ' results/base-index.json)
+          jq -n --arg base "$BASE_IMAGE" --arg parent "${BASE_IMAGE%@*}@$parent_digest" \
+            '{base: $base, platform: "linux/amd64", runtimeBase: $parent}' > results/inputs.json
       - name: Build and publish with Buildah
         id: publish
         env:
@@ -86,12 +91,37 @@ jobs:
           printf 'image=%s@%s\n' "$IMAGE" "$digest" >> "$GITHUB_OUTPUT"
       - name: Record workflow provenance
         run: |
-          results/provenance-demo record \
-            --inputs results/inputs.json \
-            --revision "$GITHUB_SHA" \
-            --invocation "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
-            --buildah-version "$(buildah --version)" \
-            --output results/predicate.json
+          recipe_sha=$(sha256sum Containerfile | awk '{print $1}')
+          jq -n --slurpfile inputs results/inputs.json --rawfile recipe Containerfile \
+            --arg recipe_sha "$recipe_sha" --arg revision "$GITHUB_SHA" \
+            --arg source "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --arg invocation "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
+            --arg version "$(buildah --version)" '
+            def resource($name; $ref): {
+              name: $name, uri: ("oci://" + $ref), digest: {sha256: ($ref | split("@sha256:")[1])}
+            };
+            $inputs[0] as $i |
+            {
+              buildDefinition: {
+                buildType: "https://github.com/p5/base-image-provenance-verification/blob/main/docs/build-type.md",
+                externalParameters: {
+                  base: $i.base, platform: $i.platform, source: $source,
+                  revision: $revision, containerfile: "Containerfile"
+                },
+                resolvedDependencies: [
+                  resource("provider-base"; $i.base), resource("runtime-base"; $i.runtimeBase),
+                  {name: "containerfile", digest: {sha256: $recipe_sha}, content: ($recipe | @base64)},
+                  {name: "source", uri: $source, digest: {gitCommit: $revision}}
+                ]
+              },
+              runDetails: {
+                builder: {
+                  id: ($source + "/.github/workflows/demo.yml@refs/heads/main"),
+                  version: {buildah: $version}
+                },
+                metadata: {invocationId: $invocation}
+              }
+            }' > results/predicate.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: build-record
@@ -139,10 +169,6 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version-file: go.mod
-          cache: false
       - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1
         with:
           url: https://github.com/oras-project/oras/releases/download/v1.3.4/oras_1.3.4_linux_amd64.tar.gz
@@ -155,14 +181,13 @@ jobs:
           IMAGE_REF: ${{ needs.build.outputs.image }}
         run: |
           mkdir -p results
-          go build -o results/provenance-demo ./cmd/provenance-demo
           args=(--image "$IMAGE_REF" --workflow-sha "$GITHUB_SHA" --provider-ignore-tlog)
-          results/provenance-demo verify "${args[@]}" --output results/verified.json
-          if results/provenance-demo verify "${args[@]}" --provider-key keys/hummingbird.pub; then
+          scripts/verify.sh "${args[@]}" > results/verified.json
+          if scripts/verify.sh "${args[@]}" --provider-key keys/hummingbird.pub; then
             echo 'FAIL: accepted the wrong provider key' >&2
             exit 1
           fi
-          if results/provenance-demo verify --image "$IMAGE_REF" \
+          if scripts/verify.sh --image "$IMAGE_REF" \
             --workflow-sha 0000000000000000000000000000000000000000 --provider-ignore-tlog; then
             echo 'FAIL: accepted the wrong workflow commit' >&2
             exit 1
@@ -171,7 +196,7 @@ jobs:
             printf '### Third-party verification passed\n\n'
             printf 'Image: %s\n\n' "$IMAGE_REF"
             printf 'No registry login or customer secrets. Customer transparency-log checks remain enabled.\n\n'
-            printf '```sh\ngo run ./cmd/provenance-demo verify \\\n'
+            printf '```sh\nscripts/verify.sh \\\n'
             printf '  --image %s \\\n' "$IMAGE_REF"
             printf '  --workflow-sha %s \\\n' "$GITHUB_SHA"
             printf '  --provider-ignore-tlog\n```\n'
