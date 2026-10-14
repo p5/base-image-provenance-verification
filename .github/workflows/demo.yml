@@ -1,0 +1,182 @@
+name: Build and verify public provenance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provenance-demo-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BASE_IMAGE: registry.access.redhat.com/hi/core-runtime@sha256:e4b8f4ccc7a1ef92c469f53405de43292132f5da648ec5d2f95024f09762f407
+  IMAGE: ghcr.io/p5/base-image-provenance-verification
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Check verifier and workflow
+        run: |
+          go test ./...
+          go vet ./...
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+  build:
+    needs: test
+    if: github.repository == 'p5/base-image-provenance-verification' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1
+        with:
+          version: 1.3.4
+      - name: Install Buildah
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes buildah
+          buildah version
+      - name: Resolve runtime base and check Containerfile
+        run: |
+          mkdir -p results
+          go build -o results/provenance-demo ./cmd/provenance-demo
+          results/provenance-demo prepare --base "$BASE_IMAGE" --output results/inputs.json
+      - name: Build and publish with Buildah
+        id: publish
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          authfile="$RUNNER_TEMP/buildah-auth.json"
+          tag="sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          printf '%s' "$REGISTRY_TOKEN" | buildah login \
+            --authfile "$authfile" --username "$GITHUB_ACTOR" --password-stdin ghcr.io
+          sudo buildah --storage-driver=vfs build \
+            --authfile "$authfile" --isolation=chroot --platform linux/amd64 \
+            --pull=always --no-cache --layers=false --format oci \
+            --iidfile results/image-id --file Containerfile --tag "$IMAGE:$tag" .
+          sudo buildah --storage-driver=vfs push \
+            --authfile "$authfile" --digestfile results/image-digest \
+            "$IMAGE:$tag" "docker://$IMAGE:$tag"
+          digest="$(cat results/image-digest)"
+          printf '%s@%s\n' "$IMAGE" "$digest" > results/image.txt
+          printf 'image=%s@%s\n' "$IMAGE" "$digest" >> "$GITHUB_OUTPUT"
+      - name: Record workflow provenance
+        run: |
+          results/provenance-demo record \
+            --inputs results/inputs.json \
+            --revision "$GITHUB_SHA" \
+            --invocation "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
+            --buildah-version "$(buildah --version)" \
+            --output results/predicate.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-record
+          path: |
+            results/predicate.json
+            results/inputs.json
+            results/image.txt
+
+  attest:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: build-record
+          path: results
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Sign provenance with GitHub identity
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_REF: ${{ needs.build.outputs.image }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | cosign login ghcr.io \
+            --username "$GITHUB_ACTOR" --password-stdin
+          cosign attest --yes --type slsaprovenance1 \
+            --predicate results/predicate.json "$IMAGE_REF"
+          {
+            printf '### Published image\n\n%s\n\n' "$IMAGE_REF"
+            printf 'Approved workflow commit: %s\n\n' "$GITHUB_SHA"
+            printf 'Third-party verification runs in the next job without registry credentials.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  verify-public:
+    needs: [build, attest]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: oras-project/setup-oras@22ce207df3b08e061f537244349aac6ae1d214f6 # v1
+        with:
+          version: 1.3.4
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Verify as an anonymous third party
+        env:
+          IMAGE_REF: ${{ needs.build.outputs.image }}
+        run: |
+          mkdir -p results
+          go build -o results/provenance-demo ./cmd/provenance-demo
+          args=(--image "$IMAGE_REF" --workflow-sha "$GITHUB_SHA" --provider-ignore-tlog)
+          results/provenance-demo verify "${args[@]}" --output results/verified.json
+          if results/provenance-demo verify "${args[@]}" --provider-key keys/hummingbird.pub; then
+            echo 'FAIL: accepted the wrong provider key' >&2
+            exit 1
+          fi
+          if results/provenance-demo verify --image "$IMAGE_REF" \
+            --workflow-sha 0000000000000000000000000000000000000000 --provider-ignore-tlog; then
+            echo 'FAIL: accepted the wrong workflow commit' >&2
+            exit 1
+          fi
+          {
+            printf '### Third-party verification passed\n\n'
+            printf 'Image: %s\n\n' "$IMAGE_REF"
+            printf 'No registry login or customer secrets. Customer transparency-log checks remain enabled.\n\n'
+            printf '```sh\ngo run ./cmd/provenance-demo verify \\\n'
+            printf '  --image %s \\\n' "$IMAGE_REF"
+            printf '  --workflow-sha %s \\\n' "$GITHUB_SHA"
+            printf '  --provider-ignore-tlog\n```\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: public-verification
+          path: results/verified.json
+          if-no-files-found: ignore
