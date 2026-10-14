@@ -40,7 +40,7 @@ Customer transparency-log checks remain enabled. Existing provider evidence uses
 ## Details
 
 - [Customer demo walkthrough](docs/demo.md): exact commands, explanations, and expected results.
-- [Animated explanation](animation/README.md): render a Manim video locally without a paid service.
+- [Animated explanation](animation/README.md): interactive diagrams, animation research, and local rendering.
 - [How it works](docs/how-it-works.md): simple explanation, real core-runtime data, and rebuilding limits.
 - [Verification reference](docs/verification.md): keys, policy, requirements, tests, and supported scope.
 - [Build type](docs/build-type.md): provenance fields and the build procedure.

@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Follow the signed base</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="explainer.css" />
+    <script src="explainer.js" defer></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <a href="../README.md">Base image provenance</a
+      ><span>Interactive field notes / 01</span>
+    </header>
+    <main>
+      <div class="intro">
+        <div class="eyebrow">
+          A signed base. A customer image. A public chain of evidence.
+        </div>
+        <h1>Follow the<br /><em>signed base.</em></h1>
+        <p class="lede">
+          Your customer adds their files. Their users still need to know where
+          the base came from. Follow the evidence.
+        </p>
+        <nav aria-label="Diagrams">
+          <a href="#build">01 / Build</a><a href="#verify">02 / Verify</a
+          ><a href="#policy">03 / Decide</a>
+        </nav>
+      </div>
+
+      <section id="build" class="chapter">
+        <div class="chapter-heading">
+          <span class="chapter-number">01</span>
+          <div>
+            <h2>A reference makes the connection.</h2>
+            <p>
+              The build records the base digest in a new statement. The provider
+              signature stays with the base.
+            </p>
+          </div>
+        </div>
+        <figure class="scene" data-scene="build">
+          <div
+            class="stage"
+            role="img"
+            aria-label="The signed Red Hat base passes through the customer's build. The build creates BBB and a separate signed statement that records AAA's digest."
+          >
+            <svg class="wires" viewBox="0 0 1100 540" aria-hidden="true">
+              <path id="build-input" d="M287 164 H402" />
+              <path id="build-output" d="M662 164 H790" />
+              <path id="build-base" d="M170 253 V365 Q170 385 190 385 H310" />
+              <path
+                id="build-subject"
+                d="M915 253 V365 Q915 385 895 385 H790"
+              />
+              <path id="build-identity" d="M532 250 V321" />
+              <g class="ports">
+                <circle cx="287" cy="164" r="3" />
+                <circle cx="402" cy="164" r="3" />
+                <circle cx="662" cy="164" r="3" />
+                <circle cx="790" cy="164" r="3" />
+                <circle cx="170" cy="253" r="3" />
+                <circle cx="915" cy="253" r="3" />
+              </g>
+              <g
+                class="packet"
+                data-route="build-input"
+                data-start="0.12"
+                data-end="0.22"
+              >
+                <rect x="-23" y="-11" width="46" height="22" rx="5" />
+                <text y="4" text-anchor="middle">AAA</text>
+              </g>
+              <g
+                class="packet"
+                data-route="build-output"
+                data-start="0.32"
+                data-end="0.42"
+              >
+                <rect x="-23" y="-11" width="46" height="22" rx="5" />
+                <text y="4" text-anchor="middle">BBB</text>
+              </g>
+              <g
+                class="packet"
+                data-route="build-base"
+                data-start="0.47"
+                data-end="0.59"
+              >
+                <rect x="-36" y="-11" width="72" height="22" rx="5" />
+                <text y="4" text-anchor="middle">e4b8f4cc</text>
+              </g>
+              <g
+                class="packet"
+                data-route="build-subject"
+                data-start="0.59"
+                data-end="0.70"
+              >
+                <rect x="-36" y="-11" width="72" height="22" rx="5" />
+                <text y="4" text-anchor="middle">d0a59cb7</text>
+              </g>
+              <g
+                class="packet"
+                data-route="build-identity"
+                data-start="0.71"
+                data-end="0.81"
+              >
+                <rect x="-25" y="-11" width="50" height="22" rx="5" />
+                <text y="4" text-anchor="middle">OIDC</text>
+              </g>
+            </svg>
+            <div class="node base-node at-base">
+              <div class="node-head">
+                <span class="node-icon">▱</span> Provider
+                <span class="node-id">AAA</span>
+              </div>
+              <strong>Red Hat core-runtime</strong>
+              <div class="layer-stack"><i></i><i></i><i></i></div>
+              <code>sha256:e4b8f4cc…</code>
+              <div class="node-note">Multi-platform index</div>
+            </div>
+            <div class="signature" data-after="-0.06">
+              <span class="seal">✓</span>
+              <div>Provider signature<small>Red Hat release key</small></div>
+            </div>
+            <div class="node build-node at-build">
+              <div class="node-head">
+                <span class="node-icon">⌘</span> Customer workflow
+              </div>
+              <strong>Buildah build</strong>
+              <div class="build-recipe">
+                <span>FROM</span> core-runtime@sha256:…<br /><span>COPY</span>
+                customer/message.txt
+              </div>
+              <div class="build-scan"></div>
+              <div class="node-note build-state">Ready to build</div>
+            </div>
+            <div class="node customer-node at-customer" data-after="0.32">
+              <div class="node-head">
+                <span class="node-icon">▱</span> Customer
+                <span class="node-id">BBB</span>
+              </div>
+              <strong>Extended image</strong>
+              <div class="layer-stack">
+                <i class="customer-layer"></i><i></i><i></i>
+              </div>
+              <code>sha256:d0a59cb7…</code>
+              <div class="node-note">Base layers + customer file</div>
+            </div>
+            <div class="statement" data-after="0.43">
+              <div class="statement-head">
+                <span>SLSA provenance</span
+                ><span class="statement-signature" data-after="0.84"
+                  >✓ Signed by customer workflow</span
+                >
+              </div>
+              <div class="statement-row" data-after="0.59">
+                <span>provider-base</span
+                ><code>core-runtime@sha256:e4b8f4cc…</code>
+              </div>
+              <div class="statement-row" data-after="0.70">
+                <span>subject</span><code>customer-image@sha256:d0a59cb7…</code>
+              </div>
+              <div class="statement-row" data-after="0.81">
+                <span>builder</span
+                ><code>GitHub workflow + approved commit</code>
+              </div>
+            </div>
+          </div>
+          <figcaption>
+            <span class="step-index">01 / 05</span
+            ><span class="scene-caption" aria-live="polite"
+              >The provider publishes AAA and its signature.</span
+            >
+          </figcaption>
+          <div class="transport">
+            <button
+              class="play-button"
+              type="button"
+              aria-label="Play build animation"
+            >
+              ▶ <span>Play</span></button
+            ><input
+              type="range"
+              min="0"
+              max="1000"
+              value="0"
+              aria-label="Build animation progress"
+            /><span class="clock">00:00 / 00:18</span
+            ><button
+              class="replay-button"
+              type="button"
+              aria-label="Replay build animation"
+            >
+              ↺
+            </button>
+          </div>
+        </figure>
+        <div class="takeaway">
+          <span>Keep this distinction</span>
+          <p>
+            The customer statement contains the base <em>reference</em>. It does
+            not contain the provider signature.
+          </p>
+        </div>
+      </section>
+
+      <section id="verify" class="chapter">
+        <div class="chapter-heading">
+          <span class="chapter-number">02</span>
+          <div>
+            <h2>Two signatures. Two independent checks.</h2>
+            <p>
+              A user starts with BBB, reads the verified base reference, and
+              retrieves the provider evidence separately.
+            </p>
+          </div>
+        </div>
+        <figure class="scene" data-scene="verify">
+          <div
+            class="stage verify-stage"
+            role="img"
+            aria-label="A third-party verifier retrieves customer provenance from GHCR, then base evidence from Red Hat's registry. It checks both signatures and applies the CUE policy."
+          >
+            <svg class="wires" viewBox="0 0 1100 540" aria-hidden="true">
+              <path id="verify-start" d="M277 263 H352" />
+              <path
+                id="verify-customer"
+                d="M611 213 H660 Q680 213 680 193 V143 Q680 123 700 123 H754"
+              />
+              <path
+                id="verify-provider"
+                d="M611 312 H660 Q680 312 680 332 V405 Q680 425 700 425 H754"
+              />
+              <g class="ports">
+                <circle cx="277" cy="263" r="3" />
+                <circle cx="352" cy="263" r="3" />
+                <circle cx="611" cy="213" r="3" />
+                <circle cx="611" cy="312" r="3" />
+                <circle cx="754" cy="123" r="3" />
+                <circle cx="754" cy="425" r="3" />
+              </g>
+              <g
+                class="packet"
+                data-route="verify-customer"
+                data-start="0.10"
+                data-end="0.20"
+              >
+                <rect x="-24" y="-11" width="48" height="22" rx="5" />
+                <text y="4" text-anchor="middle">BBB</text>
+              </g>
+              <g
+                class="packet"
+                data-route="verify-customer"
+                data-start="0.23"
+                data-end="0.33"
+                data-reverse
+              >
+                <rect x="-35" y="-11" width="70" height="22" rx="5" />
+                <text y="4" text-anchor="middle">SLSA</text>
+              </g>
+              <g
+                class="packet"
+                data-route="verify-provider"
+                data-start="0.42"
+                data-end="0.54"
+              >
+                <rect x="-36" y="-11" width="72" height="22" rx="5" />
+                <text y="4" text-anchor="middle">e4b8f4cc</text>
+              </g>
+              <g
+                class="packet"
+                data-route="verify-provider"
+                data-start="0.57"
+                data-end="0.69"
+                data-reverse
+              >
+                <rect x="-35" y="-11" width="70" height="22" rx="5" />
+                <text y="4" text-anchor="middle">SIGNATURE</text>
+              </g>
+            </svg>
+            <div class="node at-user">
+              <div class="node-head">
+                <span class="node-icon">&gt;_</span> Third party
+              </div>
+              <strong>Start with BBB</strong><code>sha256:d0a59cb7…</code>
+              <div class="anonymous"><span>○</span> No registry login</div>
+            </div>
+            <div class="node at-verifier">
+              <div class="node-head">
+                <span class="node-icon">◇</span> Local verifier
+              </div>
+              <strong>Cosign + CUE</strong>
+              <div class="check-row" data-check="0.36">
+                <span class="check-mark">○</span> Customer provenance
+              </div>
+              <div class="check-row" data-check="0.73">
+                <span class="check-mark">○</span> Provider evidence
+              </div>
+              <div class="check-row" data-check="0.85">
+                <span class="check-mark">○</span> Approved base policy
+              </div>
+              <div class="verification-result" data-after="0.90">
+                ✓ Evidence accepted
+              </div>
+            </div>
+            <div class="registry at-ghcr">
+              <div class="registry-label">
+                <span>PUBLIC REGISTRY</span><span>01</span>
+              </div>
+              <h3>ghcr.io</h3>
+              <div class="registry-item"><span>BBB</span> Customer image</div>
+              <div class="registry-item">
+                <span>↳</span> Signed SLSA provenance
+              </div>
+              <small>Trusted GitHub workflow identity</small>
+            </div>
+            <div class="registry at-redhat">
+              <div class="registry-label">
+                <span>PROVIDER REGISTRY</span><span>02</span>
+              </div>
+              <h3>registry.access.redhat.com</h3>
+              <div class="registry-item"><span>AAA</span> core-runtime</div>
+              <div class="registry-item">
+                <span>↳</span> Base signature + provenance
+              </div>
+              <small>Trusted provider public keys</small>
+            </div>
+            <div class="base-reference" data-after="0.36">
+              Resolved base <code>sha256:e4b8f4cc…</code>
+            </div>
+          </div>
+          <figcaption>
+            <span class="step-index">01 / 05</span
+            ><span class="scene-caption" aria-live="polite"
+              >The user supplies BBB's digest and the approved workflow
+              commit.</span
+            >
+          </figcaption>
+          <div class="transport">
+            <button
+              class="play-button"
+              type="button"
+              aria-label="Play verification animation"
+            >
+              ▶ <span>Play</span></button
+            ><input
+              type="range"
+              min="0"
+              max="1000"
+              value="0"
+              aria-label="Verification animation progress"
+            /><span class="clock">00:00 / 00:20</span
+            ><button
+              class="replay-button"
+              type="button"
+              aria-label="Replay verification animation"
+            >
+              ↺
+            </button>
+          </div>
+        </figure>
+        <div class="takeaway">
+          <span>Where trust enters</span>
+          <p>
+            Users approve the workflow and the provider keys. A signature
+            authenticates a statement; the builder must tell the truth.
+          </p>
+        </div>
+      </section>
+
+      <section id="policy" class="chapter">
+        <div class="chapter-heading">
+          <span class="chapter-number">03</span>
+          <div>
+            <h2>Signed does not always mean accepted.</h2>
+            <p>
+              Keep the signed statement. Change the base that your policy
+              requires.
+            </p>
+          </div>
+        </div>
+        <div class="policy-controls">
+          <label class="policy-toggle"
+            ><input id="wrong-base" type="checkbox" /><span
+              class="toggle-track"
+            ></span
+            ><span>Require a different base</span></label
+          ><span class="policy-hint"
+            >Same evidence. Different acceptance rule.</span
+          >
+        </div>
+        <figure class="policy-scene" data-wrong="false">
+          <div class="policy-comparison">
+            <div class="policy-document">
+              <span class="document-label">WHAT THE WORKFLOW SIGNED</span>
+              <h3>Customer provenance</h3>
+              <div class="document-line">
+                <span>base</span><code>sha256:e4b8f4cc…</code>
+              </div>
+              <div class="document-line">
+                <span>workflow</span><code>approved commit</code>
+              </div>
+              <div class="valid-signature">
+                <span>✓</span> Cosign: valid signature
+              </div>
+            </div>
+            <div class="comparison-mark" aria-hidden="true">
+              <span class="equals">=</span><span class="not-equals">≠</span>
+            </div>
+            <div class="policy-document">
+              <span class="document-label">WHAT THE USER REQUIRES</span>
+              <h3>CUE policy</h3>
+              <div class="document-line">
+                <span>base</span
+                ><code class="expected-base">sha256:e4b8f4cc…</code>
+              </div>
+              <div class="document-line">
+                <span>workflow</span><code>approved commit</code>
+              </div>
+              <div class="policy-verdict">
+                <span>✓</span> CUE: matching base
+              </div>
+            </div>
+          </div>
+          <figcaption class="policy-result" aria-live="polite">
+            <span class="result-dot"></span><strong>Accept</strong
+            ><span>The signed base matches the approved base.</span>
+          </figcaption>
+        </figure>
+        <div class="takeaway">
+          <span>What CUE adds</span>
+          <p>
+            Cosign checks who signed. CUE checks what they signed against your
+            rules. Cosign includes the CUE policy engine.
+          </p>
+        </div>
+      </section>
+
+      <section class="evidence">
+        <span class="eyebrow">From explanation to verification</span>
+        <h2>Run the real check.</h2>
+        <p>
+          These diagrams illustrate the published demo. They do not run
+          cryptographic checks.
+        </p>
+        <pre><code>scripts/verify.sh \
+  ghcr.io/p5/base-image-provenance-verification@sha256:d0a59cb700225b9ff3454551b005b4362df17c725d2fd57d1d80e49c8b7414e8 \
+  73d3646142299e32b227b12495bc661823b67409</code></pre>
+        <p class="evidence-links">
+          <a
+            href="https://github.com/p5/base-image-provenance-verification/blob/main/docs/demo.md"
+            >Exact commands and expected results ↗</a
+          ><a
+            href="https://github.com/p5/base-image-provenance-verification/blob/main/docs/verification.md"
+            >Keys and trust requirements ↗</a
+          >
+        </p>
+        <details>
+          <summary>Image index and runtime manifest</summary>
+          <p>
+            The signed provider digest identifies a multi-platform index. The
+            build selects its AMD64 manifest and records both digests.
+          </p>
+          <pre><code>Provider index   sha256:e4b8f4ccc7a1ef92c469f53405de43292132f5da648ec5d2f95024f09762f407
+AMD64 manifest   sha256:07247ee02238b21022a5eb877e8e44c4560999627bf5e9dd9ab54922d2d74ae4</code></pre>
+          <p>
+            The demo checks provider evidence with public keys and skips
+            provider transparency-log checks. Customer transparency-log checks
+            remain enabled.
+          </p>
+        </details>
+      </section>
+      <footer>
+        <span>Base origin. Public evidence.</span
+        ><span
+          >This does not check unchanged files or preserved hardening.</span
+        >
+      </footer>
+    </main>
+  </body>
+</html>

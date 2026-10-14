@@ -1,5 +1,17 @@
 # Render the explanation locally
 
+## Interactive browser explanation
+
+Open `animation/explainer.html` in a browser. No server or package installation is necessary.
+Play each diagram, pause it, or move its progress slider.
+Select **Require a different base** to see CUE reject a statement whose signature stays valid.
+
+This version follows the live-diagram approach in the supplied Anomaly reference.
+See [the research](research.md) for the inspected examples, production methods, and cost constraints.
+The browser explanation is an illustration. It does not perform cryptographic verification.
+
+## Original Manim video
+
 Manim Community is free software under the MIT license.
 Rendering uses your computer. It does not require Animo, a subscription, or a hosted rendering service.
 
